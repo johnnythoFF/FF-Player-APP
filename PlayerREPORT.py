@@ -398,39 +398,109 @@ def make_compare_radar(p1, p2, all_players, name1, name2):
         'def_actions': max(p['def_actions'] for p in vals) or 1,
         'interceptions': max(p['interceptions'] for p in vals) or 1,
         'crosses': max(p['crosses'] for p in vals) or 1,
+        'crosses_complete': max(p['crosses_complete'] for p in vals) or 1,
+        'sot': max(p['sot'] for p in vals) or 1,
     }
 
     def scores(player):
         return [
             round(player['total_passes'] / maxes['total_passes'] * 100),
+            player['pass_pct'],
             round(player['shots'] / maxes['shots'] * 100),
+            round(player['sot'] / maxes['sot'] * 100),
             round(player['def_actions'] / maxes['def_actions'] * 100),
             round(player['interceptions'] / maxes['interceptions'] * 100),
             round(player['crosses'] / maxes['crosses'] * 100),
-            player['pass_pct'],
+            round(player['crosses_complete'] / maxes['crosses_complete'] * 100) if maxes['crosses_complete'] > 0 else 0,
         ]
 
-    labels = ['Passes', 'Shots', 'Def Actions', 'Interceptions', 'Crosses', 'Pass %']
-    s1 = scores(p1) + [scores(p1)[0]]
-    s2 = scores(p2) + [scores(p2)[0]]
+    labels = [
+        'PASSES', 'PASS %',
+        'SHOTS', 'ON TARGET',
+        'DEF ACTIONS', 'INTERCEPTIONS',
+        'CROSSES', 'CROSS SUCCESS',
+    ]
+
+    C1, C2 = '#ff4d6a', '#00e5c0'
+
+    s1 = scores(p1)
+    s2 = scores(p2)
+    s1_closed = s1 + [s1[0]]
+    s2_closed = s2 + [s2[0]]
     labels_closed = labels + [labels[0]]
 
     fig = go.Figure()
-    for s, color, name in [(s1, '#00C87A', name1), (s2, '#F5A623', name2)]:
-        fig.add_trace(go.Scatterpolar(
-            r=s, theta=labels_closed, fill='toself',
-            fillcolor=f'rgba({int(color[1:3],16)},{int(color[3:5],16)},{int(color[5:7],16)},0.12)',
-            line=dict(color=color, width=2),
-            marker=dict(size=5, color=color),
-            name=name,
-        ))
+
+    fig.add_trace(go.Scatterpolar(
+        r=s1_closed, theta=labels_closed,
+        fill='toself',
+        fillcolor=f'rgba(255,77,106,0.25)',
+        line=dict(color=C1, width=2.5),
+        marker=dict(size=7, color=C1, line=dict(color='white', width=1)),
+        name=name1,
+    ))
+
+    fig.add_trace(go.Scatterpolar(
+        r=s2_closed, theta=labels_closed,
+        fill='toself',
+        fillcolor=f'rgba(0,229,192,0.2)',
+        line=dict(color=C2, width=2.5),
+        marker=dict(size=7, color=C2, line=dict(color='white', width=1)),
+        name=name2,
+    ))
+
     fig.update_layout(
-        polar=dict(radialaxis=dict(visible=False, range=[0,100]), angularaxis=dict(tickfont=dict(size=12))),
-        showlegend=True,
-        legend=dict(orientation='h', yanchor='bottom', y=-0.15, font=dict(size=12)),
-        margin=dict(t=20, b=40, l=40, r=40),
-        height=360,
-        paper_bgcolor='rgba(0,0,0,0)',
+        polar=dict(
+            bgcolor='#1a1d2e',
+            radialaxis=dict(
+                visible=True,
+                range=[0, 100],
+                tickvals=[25, 50, 75, 100],
+                ticktext=['', '', '', ''],
+                gridcolor='rgba(255,255,255,0.08)',
+                linecolor='rgba(255,255,255,0.08)',
+            ),
+            angularaxis=dict(
+                tickfont=dict(size=11, color='white', family='Arial Black'),
+                linecolor='rgba(255,255,255,0.15)',
+                gridcolor='rgba(255,255,255,0.08)',
+            ),
+        ),
+        showlegend=False,
+        margin=dict(t=40, b=120, l=80, r=80),
+        height=560,
+        paper_bgcolor='#0f1117',
+        plot_bgcolor='#0f1117',
+        annotations=[
+            dict(
+                x=0.18, y=-0.18, xref='paper', yref='paper',
+                text=f"<b>{name1.upper()}</b>",
+                showarrow=False,
+                font=dict(size=16, color='white', family='Arial Black'),
+                xanchor='center',
+            ),
+            dict(
+                x=0.82, y=-0.18, xref='paper', yref='paper',
+                text=f"<b>{name2.upper()}</b>",
+                showarrow=False,
+                font=dict(size=16, color='white', family='Arial Black'),
+                xanchor='center',
+            ),
+            dict(
+                x=0.18, y=-0.23, xref='paper', yref='paper',
+                text=f"<span style='color:{C1};'>{'━' * 12}</span>",
+                showarrow=False,
+                font=dict(size=14, color=C1),
+                xanchor='center',
+            ),
+            dict(
+                x=0.82, y=-0.23, xref='paper', yref='paper',
+                text=f"<span style='color:{C2};'>{'━' * 12}</span>",
+                showarrow=False,
+                font=dict(size=14, color=C2),
+                xanchor='center',
+            ),
+        ]
     )
     return fig
 
@@ -635,7 +705,7 @@ elif mode == "Compare Players":
     ], p1, p2, p1_name, p2_name, lower_is_better=["turnovers"])
 
     st.markdown("---")
-    st.markdown("**Head to head radar**")
+    st.markdown("**Player radar**")
     st.plotly_chart(make_compare_radar(p1, p2, players, p1_name, p2_name), use_container_width=True)
 
 
