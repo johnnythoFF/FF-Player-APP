@@ -450,12 +450,10 @@ if repo_csvs:
             st.warning(f"Could not load {game_name}: {e}")
 
 # ── PASSWORD GATE ─────────────────────────────────────────────────────────────
-with st.sidebar:
-    st.markdown("## ⚽ Player Profiler")
-    password = st.text_input("Password", type="password")
-    if password != st.secrets.get("APP_PASSWORD", "ferns2024"):
-        st.warning("Enter password to continue")
-        st.stop()
+pwd = st.text_input("Enter password", type="password")
+if pwd != st.secrets.get("APP_PASSWORD", "footballferns"):
+    st.warning("Please enter the password to access this app.")
+    st.stop()
 
 # ── SIDEBAR ───────────────────────────────────────────────────────────────────
 with st.sidebar:
