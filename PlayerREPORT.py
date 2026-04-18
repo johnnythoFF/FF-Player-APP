@@ -450,9 +450,18 @@ if repo_csvs:
             st.warning(f"Could not load {game_name}: {e}")
 
 # ── PASSWORD GATE ─────────────────────────────────────────────────────────────
-pwd = st.text_input("Enter password", type="password")
-if pwd != st.secrets.get("APP_PASSWORD", "footballferns"):
-    st.warning("Please enter the password to access this app.")
+if 'authenticated' not in st.session_state:
+    st.session_state.authenticated = False
+
+if not st.session_state.authenticated:
+    st.title("⚽ Player Profiler")
+    pwd = st.text_input("Enter password", type="password")
+    if st.button("Login"):
+        if pwd == st.secrets.get("APP_PASSWORD", "footballferns"):
+            st.session_state.authenticated = True
+            st.rerun()
+        else:
+            st.error("Incorrect password")
     st.stop()
 
 # ── SIDEBAR ───────────────────────────────────────────────────────────────────
