@@ -4,10 +4,7 @@ import plotly.graph_objects as go
 from collections import defaultdict
 import os
 import glob
-password = st.sidebar.text_input("Password", type="FootballFerns")
-if password != "yourpassword":
-    st.warning("Enter password to continue")
-    st.stop()
+
 st.set_page_config(
     page_title="Player Profiler",
     page_icon="⚽",
@@ -452,6 +449,14 @@ if repo_csvs:
         except Exception as e:
             st.warning(f"Could not load {game_name}: {e}")
 
+# ── PASSWORD GATE ─────────────────────────────────────────────────────────────
+with st.sidebar:
+    st.markdown("## ⚽ Player Profiler")
+    password = st.text_input("Password", type="password")
+    if password != st.secrets.get("APP_PASSWORD", "ferns2024"):
+        st.warning("Enter password to continue")
+        st.stop()
+
 # ── SIDEBAR ───────────────────────────────────────────────────────────────────
 with st.sidebar:
     st.markdown("## ⚽ Player Profiler")
@@ -665,32 +670,22 @@ elif mode == "Match Report":
     c3.metric("On Target", r['sot'])
     c4.metric("Shot Assist", r['shot_assist'])
 
-    col1, col2 = st.columns([1, 1])
-    with col1:
-        shot_counts = parse_zone_counts(r['shot_locations'], SL_ZONES)
-        if shot_counts:
-            st.plotly_chart(draw_pitch_map(shot_counts, SL_ZONES, "Shot Locations"), use_container_width=True)
-        else:
-            st.info("No shot location data")
-
-    with col2:
-        # Shooting breakdown bar
-        st.markdown("**Shot breakdown**")
-        off_target = r['total_shots'] - r['sot']
-        fig_shoot = go.Figure(go.Bar(
-            x=['Shots', 'On Target', 'Off Target', 'Assists'],
-            y=[r['total_shots'], r['sot'], off_target, r['shot_assist']],
-            marker_color=['#4d9fff', '#00C87A', '#ff5252', '#ffb74d'],
-            text=[r['total_shots'], r['sot'], off_target, r['shot_assist']],
-            textposition='auto',
-        ))
-        fig_shoot.update_layout(
-            height=260, margin=dict(t=10,b=10,l=10,r=10),
-            paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-            yaxis=dict(gridcolor='rgba(0,0,0,0.05)', showticklabels=False),
-            showlegend=False,
-        )
-        st.plotly_chart(fig_shoot, use_container_width=True)
+    st.markdown("**Shot breakdown**")
+    off_target = r['total_shots'] - r['sot']
+    fig_shoot = go.Figure(go.Bar(
+        x=['Shots', 'On Target', 'Off Target', 'Assists'],
+        y=[r['total_shots'], r['sot'], off_target, r['shot_assist']],
+        marker_color=['#4d9fff', '#00C87A', '#ff5252', '#ffb74d'],
+        text=[r['total_shots'], r['sot'], off_target, r['shot_assist']],
+        textposition='auto',
+    ))
+    fig_shoot.update_layout(
+        height=240, margin=dict(t=10,b=10,l=10,r=10),
+        paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+        yaxis=dict(gridcolor='rgba(0,0,0,0.05)', showticklabels=False),
+        showlegend=False,
+    )
+    st.plotly_chart(fig_shoot, use_container_width=True)
 
     st.markdown("---")
 
@@ -789,10 +784,9 @@ elif mode == "Match Report":
         c3.metric("Not found", r['cross_not_found'])
         c4.metric("Success %", f"{round(r['cross_found']/r['cross_total']*100) if r['cross_total'] else 0}%")
 
-        col1, col2, col3 = st.columns(3)
-
+        st.markdown("**Cross types**")
+        col1, col2 = st.columns(2)
         with col1:
-            st.markdown("**Cross types**")
             ct_labels = ['Whipped', 'Floated', 'Cut Back', 'Hung Up']
             ct_vals   = [r['cross_whipped'], r['cross_floated'], r['cross_cutback'], r['cross_hungup']]
             fig_ct = go.Figure(go.Bar(
@@ -807,19 +801,27 @@ elif mode == "Match Report":
                 showlegend=False,
             )
             st.plotly_chart(fig_ct, use_container_width=True)
-
         with col2:
-            co_counts = parse_zone_counts(r['cross_origins'], CO_ZONES)
-            if co_counts:
-                st.plotly_chart(draw_pitch_map(co_counts, CO_ZONES, "Cross Origins"), use_container_width=True)
-            else:
-                st.info("No cross origin data")
-
-        with col3:
-            cd_counts = parse_zone_counts(r['cross_destinations'], CD_ZONES)
-            if cd_counts:
-                st.plotly_chart(draw_pitch_map(cd_counts, CD_ZONES, "Cross Destinations"), use_container_width=True)
-            else:
-                st.info("No cross destination data")
+            st.markdown("**Cross origins**")
+            origin_counts = {}
+            for entry in r['cross_origins']:
+                for part in str(entry).split(','):
+                    part = part.strip()
+                    if part:
+                        origin_counts[part] = origin_counts.get(part, 0) + 1
+            if origin_counts:
+                fig_co = go.Figure(go.Bar(
+                    x=list(origin_counts.keys()), y=list(origin_counts.values()),
+                    marker_color='#00C87A',
+                    text=list(origin_counts.values()), textposition='auto',
+                ))
+                fig_co.update_layout(
+                    height=220, margin=dict(t=10,b=10,l=10,r=10),
+                    paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+                    yaxis=dict(gridcolor='rgba(0,0,0,0.05)', showticklabels=False),
+                    xaxis=dict(tickfont=dict(size=10)),
+                    showlegend=False,
+                )
+                st.plotly_chart(fig_co, use_container_width=True)
     else:
         st.info("No crossing data for this player in this game")
