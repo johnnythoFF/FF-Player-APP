@@ -585,26 +585,54 @@ elif mode == "Compare Players":
     p2 = players[p2_name]
 
     st.markdown("---")
-    c1, c2 = st.columns(2)
 
-    metrics = [
-        ('Passes', 'total_passes'), ('Pass %', 'pass_pct'),
-        ('Shots', 'shots'), ('On Target', 'sot'),
-        ('Def Actions', 'def_actions'), ('Interceptions', 'interceptions'),
-        ('Turnovers', 'turnovers'), ('Crosses', 'crosses'),
-    ]
+    def compare_table(title, metrics, p1, p2, p1_name, p2_name, lower_is_better=None):
+        lower_is_better = lower_is_better or []
+        st.markdown(f"**{title}**")
 
-    with c1:
-        st.markdown(f"#### 🟢 {p1_name}")
-        for label, key in metrics:
-            delta = p1[key] - p2[key]
-            st.metric(label, p1[key], f"+{delta}" if delta > 0 else str(delta))
+        header_col1, header_col2, header_col3 = st.columns([2, 3, 3])
+        header_col2.markdown(f"<div style='text-align:center;font-weight:600;color:#555;font-size:13px;'>{p1_name}</div>", unsafe_allow_html=True)
+        header_col3.markdown(f"<div style='text-align:center;font-weight:600;color:#555;font-size:13px;'>{p2_name}</div>", unsafe_allow_html=True)
 
-    with c2:
-        st.markdown(f"#### 🟡 {p2_name}")
-        for label, key in metrics:
-            delta = p2[key] - p1[key]
-            st.metric(label, p2[key], f"+{delta}" if delta > 0 else str(delta))
+        for label, key, suffix in metrics:
+            v1 = p1[key]
+            v2 = p2[key]
+            suffix_str = suffix or ''
+
+            if lower_is_better and key in lower_is_better:
+                p1_best = v1 < v2
+                p2_best = v2 < v1
+            else:
+                p1_best = v1 > v2
+                p2_best = v2 > v1
+
+            p1_style = "background:#e8f5e9;border-radius:20px;padding:2px 12px;font-weight:600;" if p1_best else ""
+            p2_style = "background:#e8f5e9;border-radius:20px;padding:2px 12px;font-weight:600;" if p2_best else ""
+
+            col_label, col_v1, col_v2 = st.columns([2, 3, 3])
+            col_label.markdown(f"<div style='padding:6px 0;font-size:13px;color:#555;'>{label}</div>", unsafe_allow_html=True)
+            col_v1.markdown(f"<div style='text-align:center;padding:4px 0;'><span style='{p1_style}'>{v1}{suffix_str}</span></div>", unsafe_allow_html=True)
+            col_v2.markdown(f"<div style='text-align:center;padding:4px 0;'><span style='{p2_style}'>{v2}{suffix_str}</span></div>", unsafe_allow_html=True)
+
+        st.markdown("<hr style='margin:8px 0;border-color:#eee;'>", unsafe_allow_html=True)
+
+    compare_table("Passing", [
+        ("Total passes",    "total_passes",    ""),
+        ("Pass completion", "pass_pct",        "%"),
+        ("Crosses",         "crosses",         ""),
+        ("Crosses complete","crosses_complete", ""),
+    ], p1, p2, p1_name, p2_name)
+
+    compare_table("Shooting", [
+        ("Shots",     "shots", ""),
+        ("On target", "sot",   ""),
+    ], p1, p2, p1_name, p2_name)
+
+    compare_table("Defending", [
+        ("Def actions",    "def_actions",   ""),
+        ("Interceptions",  "interceptions", ""),
+        ("Turnovers",      "turnovers",     ""),
+    ], p1, p2, p1_name, p2_name, lower_is_better=["turnovers"])
 
     st.markdown("---")
     st.markdown("**Head to head radar**")
