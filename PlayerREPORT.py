@@ -234,20 +234,20 @@ def parse_match_report(df, player_name):
 # Shot location zones mapped to pitch coordinates (x, y, w, h) in 0-100 space
 # Pitch: attacking half, zones from image
 SL_ZONES = {
-    # Top row (goal end) — y=0 is goal line
-    'SL Black Box':     (30,  0, 40, 20),   # top centre
-    'SL Zone FOUR C L': ( 0,  0, 20, 35),   # top far left
-    'SL Zone 00 L':     (20,  0, 20, 35),   # top centre left
-    'SL Zone 00 R':     (60,  0, 20, 35),   # top centre right
-    'SL Zone XAR':      (80,  0, 20, 35),   # top far right
-    # Middle row
-    'SL Gold Zone':     (20, 20, 60, 35),   # centre large zone
-    # Bottom row (furthest from goal)
-    'SL Zone XAL':      ( 0, 55, 20, 45),   # bottom far left
-    'SL Zone THREE C':  (20, 55, 20, 45),   # bottom centre left
-    'SL Zone ONE C':    (40, 55, 20, 45),   # bottom centre
-    'SL Zone TWO C':    (60, 55, 20, 45),   # bottom centre right
-    'SL Zone FOUR C R': (80, 55, 20, 45),   # bottom far right
+    # Top row — furthest from goal (top of image)
+    'SL Zone FOUR C L': ( 0,  0, 20, 33),
+    'SL Zone 00 L':     (20,  0, 20, 33),
+    'SL Black Box':     (30,  0, 40, 20),
+    'SL Zone 00 R':     (60,  0, 20, 33),
+    'SL Zone XAR':      (80,  0, 20, 33),
+    # Middle row — Gold Zone (large central area)
+    'SL Gold Zone':     (20, 33, 60, 34),
+    # Bottom row — closest to goal
+    'SL Zone XAL':      ( 0, 33, 20, 67),
+    'SL Zone THREE C':  (20, 67, 20, 33),
+    'SL Zone ONE C':    (40, 67, 20, 33),
+    'SL Zone TWO C':    (60, 67, 20, 33),
+    'SL Zone FOUR C R': (80, 67, 20, 33),
 }
 
 CO_ZONES = {
@@ -284,20 +284,21 @@ def draw_pitch_map(zone_counts, zone_defs, title, max_count=None):
     # Pitch background
     fig.add_shape(type='rect', x0=0, y0=0, x1=100, y1=100,
                   fillcolor='#3a7d2c', line=dict(color='white', width=2))
-    # Penalty box
-    fig.add_shape(type='rect', x0=20, y0=0, x1=80, y1=35,
+
+    # Penalty box (bottom, near goal)
+    fig.add_shape(type='rect', x0=20, y0=65, x1=80, y1=100,
                   fillcolor='rgba(0,0,0,0)', line=dict(color='white', width=1.5))
     # Six yard box
-    fig.add_shape(type='rect', x0=37, y0=0, x1=63, y1=12,
+    fig.add_shape(type='rect', x0=37, y0=88, x1=63, y1=100,
                   fillcolor='rgba(0,0,0,0)', line=dict(color='white', width=1.5))
-    # Goal
-    fig.add_shape(type='rect', x0=42, y0=-4, x1=58, y1=0,
+    # Goal (below pitch)
+    fig.add_shape(type='rect', x0=42, y0=100, x1=58, y1=104,
                   fillcolor='rgba(0,0,0,0)', line=dict(color='white', width=2))
     # Halfway line
-    fig.add_shape(type='line', x0=0, y0=100, x1=100, y1=100,
+    fig.add_shape(type='line', x0=0, y0=0, x1=100, y1=0,
                   line=dict(color='white', width=1.5))
-    # Centre circle
-    fig.add_shape(type='circle', x0=35, y0=85, x1=65, y1=115,
+    # Centre circle (top half)
+    fig.add_shape(type='circle', x0=35, y0=-18, x1=65, y1=12,
                   line=dict(color='white', width=1.5))
 
     for zone, (x, y, w, h) in zone_defs.items():
@@ -305,31 +306,36 @@ def draw_pitch_map(zone_counts, zone_defs, title, max_count=None):
         intensity = count / max_count if max_count > 0 else 0
         if intensity > 0:
             r_val = int(255 * intensity)
-            g_val = int(100 * (1 - intensity))
-            color = f'rgba({r_val},{g_val},0,{0.4 + intensity * 0.55})'
+            g_val = int(80 * (1 - intensity))
+            color = f'rgba({r_val},{g_val},0,{0.45 + intensity * 0.5})'
         else:
             color = 'rgba(0,0,0,0.08)'
 
         fig.add_shape(type='rect', x0=x, y0=y, x1=x+w, y1=y+h,
                       fillcolor=color,
-                      line=dict(color='rgba(255,255,255,0.5)', width=1))
+                      line=dict(color='rgba(255,255,255,0.6)', width=1))
 
-        label = f"<b>{count}</b>" if count > 0 else zone.replace('SL ','').replace('CO ','').replace('CD ','')
-        fontsize = 14 if count > 0 else 9
-        fig.add_annotation(x=x+w/2, y=y+h/2, text=label,
-                           showarrow=False,
-                           font=dict(color='white', size=fontsize, family='Arial'),
-                           xref='x', yref='y')
+        if count > 0:
+            fig.add_annotation(x=x+w/2, y=y+h/2, text=f"<b>{count}</b>",
+                               showarrow=False,
+                               font=dict(color='white', size=16, family='Arial Black'),
+                               xref='x', yref='y')
+        else:
+            short = zone.replace('SL Zone ','').replace('SL ','')
+            fig.add_annotation(x=x+w/2, y=y+h/2, text=short,
+                               showarrow=False,
+                               font=dict(color='rgba(255,255,255,0.5)', size=8, family='Arial'),
+                               xref='x', yref='y')
 
     fig.update_layout(
-        title=dict(text=title, font=dict(size=13, color='white'), x=0.5),
+        title=dict(text=f"<b>{title}</b>", font=dict(size=13, color='white'), x=0.5),
         xaxis=dict(range=[0,100], showgrid=False, zeroline=False, showticklabels=False),
-        yaxis=dict(range=[-4,100], showgrid=False, zeroline=False, showticklabels=False,
-                   scaleanchor='x', scaleratio=1.3),
+        yaxis=dict(range=[0,104], showgrid=False, zeroline=False, showticklabels=False,
+                   scaleanchor='x', scaleratio=1.4),
         paper_bgcolor='#1a1a2e',
         plot_bgcolor='#3a7d2c',
-        margin=dict(t=30, b=5, l=5, r=5),
-        height=300,
+        margin=dict(t=35, b=5, l=5, r=5),
+        height=320,
     )
     return fig
 
