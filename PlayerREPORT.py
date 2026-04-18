@@ -4,7 +4,10 @@ import plotly.graph_objects as go
 from collections import defaultdict
 import os
 import glob
-
+password = st.sidebar.text_input("Password", type="FootballFerns")
+if password != "yourpassword":
+    st.warning("Enter password to continue")
+    st.stop()
 st.set_page_config(
     page_title="Player Profiler",
     page_icon="⚽",
