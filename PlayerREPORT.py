@@ -1,8 +1,9 @@
 import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
-import plotly.express as px
 from collections import defaultdict
+import os
+import glob
 
 st.set_page_config(
     page_title="Player Profiler",
@@ -14,15 +15,13 @@ st.set_page_config(
 st.markdown("""
 <style>
     .block-container { padding-top: 1.5rem; }
-    .metric-container { background: #f8f9fa; border-radius: 8px; padding: 12px; }
     h1 { font-size: 1.6rem !important; }
 </style>
 """, unsafe_allow_html=True)
 
 
 def parse_csv(file):
-    df = pd.read_csv(file)
-    return df
+    return pd.read_csv(file)
 
 
 def aggregate_stats(df):
@@ -70,11 +69,7 @@ def aggregate_stats(df):
     for name, stats in players.items():
         total = stats['passes_complete'] + stats['passes_incomplete']
         pass_pct = round(stats['passes_complete'] / total * 100) if total else 0
-        result[name] = {
-            **stats,
-            'total_passes': total,
-            'pass_pct': pass_pct,
-        }
+        result[name] = {**stats, 'total_passes': total, 'pass_pct': pass_pct}
     return result
 
 
@@ -120,19 +115,14 @@ def make_radar(player, all_players, color='#00C87A', name=None):
 
     fig = go.Figure()
     fig.add_trace(go.Scatterpolar(
-        r=scores_closed,
-        theta=labels_closed,
-        fill='toself',
+        r=scores_closed, theta=labels_closed, fill='toself',
         fillcolor=f'rgba({int(color[1:3],16)},{int(color[3:5],16)},{int(color[5:7],16)},0.15)',
         line=dict(color=color, width=2),
         marker=dict(size=6, color=color),
-        name=name or player.get('name', ''),
+        name=name or '',
     ))
     fig.update_layout(
-        polar=dict(
-            radialaxis=dict(visible=False, range=[0, 100]),
-            angularaxis=dict(tickfont=dict(size=12)),
-        ),
+        polar=dict(radialaxis=dict(visible=False, range=[0,100]), angularaxis=dict(tickfont=dict(size=12))),
         showlegend=False,
         margin=dict(t=20, b=20, l=40, r=40),
         height=320,
@@ -187,43 +177,51 @@ def make_compare_radar(p1, p2, all_players, name1, name2):
     return fig
 
 
-# ── Sidebar ──────────────────────────────────────────────────────────────────
+# ── Auto-load CSVs from data/ folder ─────────────────────────────────────────
+all_games = {}
+data_folder = "data"
+repo_csvs = sorted(glob.glob(os.path.join(data_folder, "*.csv")))
+
+if repo_csvs:
+    for path in repo_csvs:
+        game_name = os.path.basename(path).replace('.csv', '')
+        df = pd.read_csv(path)
+        all_games[game_name] = aggregate_stats(df)
+
+# ── Sidebar ───────────────────────────────────────────────────────────────────
 with st.sidebar:
     st.markdown("## ⚽ Player Profiler")
     st.markdown("---")
+
+    if repo_csvs:
+        st.success(f"{len(repo_csvs)} game(s) auto-loaded from repo")
+        for path in repo_csvs:
+            st.markdown(f"- `{os.path.basename(path)}`")
+        st.markdown("---")
+
     uploaded = st.file_uploader(
-        "Upload match CSVs",
+        "Upload additional CSVs",
         type="csv",
         accept_multiple_files=True,
-        help="Upload one or more match CSV exports"
+        help="Add extra match CSVs on top of the repo data"
     )
+
+    if uploaded:
+        for f in uploaded:
+            game_name = f.name.replace('.csv', '')
+            if game_name not in all_games:
+                all_games[game_name] = aggregate_stats(parse_csv(f))
+
     st.markdown("---")
     mode = st.radio("View mode", ["Single Player", "Compare Players", "Squad Table"])
 
-# ── Load data ─────────────────────────────────────────────────────────────────
-if not uploaded:
+# ── No data at all ────────────────────────────────────────────────────────────
+if not all_games:
     st.title("⚽ Player Profiler")
-    st.info("Upload one or more match CSV files using the sidebar to get started.")
-    st.markdown("""
-    **What this app does:**
-    - Profiles individual players from match data
-    - Compares players head to head
-    - Shows full squad overview table
-    - Aggregates stats across multiple games
-
-    **How to use:**
-    1. Export match CSV from your analysis software
-    2. Upload via the sidebar (you can add multiple games)
-    3. Select a player and view their profile
-    """)
+    st.info("No CSV files found in the `data/` folder and none uploaded. Add CSVs to the `data/` folder in the GitHub repo or upload them via the sidebar.")
     st.stop()
 
-# Parse all uploaded files
-all_games = {}
-for f in uploaded:
-    df = parse_csv(f)
-    all_games[f.name.replace('.csv', '')] = aggregate_stats(df)
-
+# ── Merge all games ───────────────────────────────────────────────────────────
 players = merge_games(all_games)
 player_names = sorted(players.keys())
 
@@ -231,7 +229,6 @@ if not player_names:
     st.error("No player data found. Check your CSV format.")
     st.stop()
 
-# ── Game badges ───────────────────────────────────────────────────────────────
 game_names = list(all_games.keys())
 st.markdown(f"**Games loaded:** {' · '.join([f'`{g}`' for g in game_names])}")
 st.markdown("---")
@@ -242,7 +239,6 @@ if mode == "Single Player":
     p = players[selected]
 
     st.markdown(f"### {selected}")
-
     c1, c2, c3, c4, c5, c6 = st.columns(6)
     c1.metric("Passes", p['total_passes'], f"{p['pass_pct']}% complete")
     c2.metric("Shots", p['shots'], f"{p['sot']} on target")
@@ -311,20 +307,14 @@ elif mode == "Compare Players":
     with c1:
         st.markdown(f"#### 🟢 {p1_name}")
         for label, key in metrics:
-            val1 = p1[key]
-            val2 = p2[key]
-            delta = val1 - val2
-            delta_str = f"+{delta}" if delta > 0 else str(delta)
-            st.metric(label, val1, delta_str)
+            delta = p1[key] - p2[key]
+            st.metric(label, p1[key], f"+{delta}" if delta > 0 else str(delta))
 
     with c2:
         st.markdown(f"#### 🟡 {p2_name}")
         for label, key in metrics:
-            val1 = p1[key]
-            val2 = p2[key]
-            delta = val2 - val1
-            delta_str = f"+{delta}" if delta > 0 else str(delta)
-            st.metric(label, val2, delta_str)
+            delta = p2[key] - p1[key]
+            st.metric(label, p2[key], f"+{delta}" if delta > 0 else str(delta))
 
     st.markdown("---")
     st.markdown("**Head to head radar**")
